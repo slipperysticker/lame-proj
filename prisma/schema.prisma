@@ -1,0 +1,270 @@
+// Lame Proj - Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// User Model
+// ============================================
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?   @db.Text
+  website       String?
+  twitter       String?
+  github        String?
+
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+  votes         Vote[]
+  comments      Comment[]
+  sentMessages     Message[] @relation("sender")
+  receivedMessages Message[] @relation("receiver")
+  waitlists     WaitlistEntry[]
+
+  @@index([email])
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ============================================
+// Auth Models (NextAuth)
+// ============================================
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// Project Model
+// ============================================
+model Project {
+  id            String    @id @default(cuid())
+  name          String
+  tagline       String
+  description   String    @db.Text
+  website       String?
+  github        String?
+  twitter       String?
+
+  logo          String?
+  coverImage    String?
+  images        String[]
+  videoUrl      String?
+
+  status        ProjectStatus @default(DRAFT)
+  launchDate    DateTime?
+
+  lameScore     Int       @default(0)
+
+  creatorId     String
+  creator       User      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  // Relations
+  votes         Vote[]
+  comments      Comment[]
+  waitlists     WaitlistEntry[]
+  tags          Tag[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([creatorId])
+  @@index([lameScore])
+  @@index([launchDate])
+  @@index([status])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ============================================
+// Vote Model
+// ============================================
+model Vote {
+  id          String    @id @default(cuid())
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, projectId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("votes")
+}
+
+// ============================================
+// Comment Model
+// ============================================
+model Comment {
+  id          String    @id @default(cuid())
+  content     String    @db.Text
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId    String?
+  parent      Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[] @relation("CommentReplies")
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+// ============================================
+// Message Model (Chat)
+// ============================================
+model Message {
+  id          String    @id @default(cuid())
+  content     String    @db.Text
+  read        Boolean   @default(false)
+
+  senderId    String
+  sender      User      @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  receiverId  String
+  receiver    User      @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// ============================================
+// Waitlist Model
+// ============================================
+model WaitlistEntry {
+  id          String    @id @default(cuid())
+  email       String
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  notified    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@unique([email, projectId])
+  @@index([projectId])
+  @@index([email])
+  @@map("waitlist_entries")
+}
+
+// ============================================
+// Tag Model
+// ============================================
+model Tag {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+
+  projects    Project[]
+
+  createdAt   DateTime  @default(now())
+
+  @@index([slug])
+  @@map("tags")
+}
+
+// ============================================
+// Activity Model (Live Feed)
+// ============================================
+model Activity {
+  id          String    @id @default(cuid())
+  type        ActivityType
+
+  userId      String
+  projectId   String?
+
+  metadata    Json?
+
+  createdAt   DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([type])
+  @@map("activities")
+}
+
+enum ActivityType {
+  PROJECT_LAUNCHED
+  VOTE_MILESTONE
+  COMMENT_ADDED
+  USER_JOINED
+}
