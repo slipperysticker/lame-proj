@@ -1,6 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import Header from "@/components/shared/Header"
 import Features from "@/components/landing/Features"
 import CTASection from "@/components/landing/CTASection"
 
@@ -20,8 +21,10 @@ const Hero3D = dynamic(() => import("@/components/landing/Hero3D"), {
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
-      {/* Hero Section with 3D Effect */}
+    <>
+      <Header />
+      <main className="min-h-screen">
+        {/* Hero Section with 3D Effect */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary-900/10 via-background to-background" />
 
@@ -92,6 +95,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </main>
+      </main>
+    </>
   )
 }
